@@ -1,1 +1,52 @@
+{% extends 'base.html' %}
+{% block content %}
+<button class="btn btn-secondary mb-3" onclick="window.history.back()">Back</button>
+<h2>Registered Users</h2>
+<table class="table">
+    <thead>
+        <tr>
+            <th>ID</th><th>Username</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.id }}</td>
+            <td>{{ user.username }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 
+<div class="modal fade" id="summaryModal" tabindex="-1" aria-labelledby="summaryModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="summaryModalLabel">Summary Statistics</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <canvas id="summaryChartModal" width="600" height="300"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var summaryLink = document.getElementById('summary-link');
+  if (summaryLink) {
+    summaryLink.onclick = function(e) {
+      e.preventDefault();
+      fetch('/admin/summarize').then(r => r.json()).then(res => {
+        var modal = new bootstrap.Modal(document.getElementById('summaryModal'));
+        document.getElementById('summaryModal').style.display = 'block';
+        setTimeout(function() {
+          renderBarChart('summaryChartModal', res.labels, res.data, res.label);
+        }, 200);
+        modal.show();
+      });
+    };
+  }
+});
+</script>
+{% endblock %} 
