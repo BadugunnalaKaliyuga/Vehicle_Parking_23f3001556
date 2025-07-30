@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block content %}
+<button class="btn btn-secondary mb-3" onclick="window.history.back()">Back</button>
+<h2>Parking Spots</h2>
+<table class="table">
+    <thead>
+        <tr>
+            <th>ID</th><th>Lot ID</th><th>Status</th><th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for spot in spots %}
+        <tr>
+            <td>{{ spot.id }}</td>
+            <td>{{ spot.lot_id }}</td>
+            <td>
+                <span class="badge {% if spot.status == 'A' %}bg-success{% else %}bg-danger{% endif %} spot-status-btn" data-spot-id="{{ spot.id }}" data-status="{{ spot.status }}" style="cursor:pointer;">
+                    {{ 'A' if spot.status == 'A' else 'O' }}
+                </span>
+            </td>
+            <td>
+                <button class="btn btn-info btn-sm view-spot-btn" data-spot-id="{{ spot.id }}">View</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div class="modal fade" id="viewSpotModal" tabindex="-1" aria-labelledby="viewSpotModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+    <div class="modal-content">
+        <div class="modal-header">
+        <h5 class="modal-title" id="viewSpotModalLabel">View/Delete Parking Spot</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <div class="mb-2"><strong>ID:</strong> <span id="spot_id"></span></div>
+            <div class="mb-2"><strong>Status:</strong> <span id="spot_status" style="cursor:pointer;"></span></div>
+        <div id="deleteNote" class="text-danger mb-2" style="display:none;">Note: Can't delete the occupied parking spot</div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-danger" id="deleteSpotBtn">Delete</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+    </div>
+</div>
+</div>
+
+<div class="modal fade" id="occupiedDetailsModal" tabindex="-1" aria-labelledby="occupiedDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+    <div class="modal-content">
+        <div class="modal-header">
+        <h5 class="modal-title" id="occupiedDetailsModalLabel">Occupied Parking Spot Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+        <div class="mb-2"><strong>ID:</strong> <span id="occ_spot_id"></span></div>
+        <div class="mb-2"><strong>Customer ID:</strong> <span id="occ_user_id"></span></div>
+        <div class="mb-2"><strong>Vehicle number:</strong> <span id="occ_vehicle_number"></span></div>
+        <div class="mb-2"><strong>Date/time of parking:</strong> <span id="occ_parking_time"></span></div>
+        <div class="mb-2"><strong>Est. parking cost:</strong> <span id="occ_parking_cost"></span></div>
+        </div>
+        <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+    </div>
+</div>
+</div>
+<script>
+
+const viewBtns = document.querySelectorAll('.view-spot-btn');
+viewBtns.forEach(btn => {
+btn.onclick = function() {
+    const spotId = this.dataset.spotId;
+    fetch(`/admin/spot_details/${spotId}`).then(r => r.json()).then(data => {
+        document.getElementById('spot_id').textContent = data.id;
+        document.getElementById('spot_status').textContent = data.status;
+        document.getElementById('spot_status').setAttribute('data-spot-id', data.id);
+        document.getElementById('spot_status').setAttribute('data-status', data.status);
+        if (data.status === 'O') {
+        document.getElementById('deleteSpotBtn').disabled = true;
+        document.getElementById('deleteNote').style.display = '';
+        } else {
+        document.getElementById('deleteSpotBtn').disabled = false;
+        document.getElementById('deleteNote').style.display = 'none';
+        }
+    new bootstrap.Modal(document.getElementById('viewSpotModal')).show();
+    });
+};
+});
+
+
+if (document.getElementById('deleteSpotBtn')) {
+    document.getElementById('deleteSpotBtn').onclick = function() {
+    const spotId = document.getElementById('spot_id').textContent;
+    fetch('/admin/delete_spot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spot_id: spotId })
+    }).then(r => r.json()).then(res => {
+        if (res.success) {
+        location.reload();
+        }
+    });
+};
+}
+
+if (document.getElementById('spot_status')) {
+    document.getElementById('spot_status').onclick = function() {
+    if (this.getAttribute('data-status') === 'O') {
+        const spotId = this.getAttribute('data-spot-id');
+        fetch(`/admin/occupied_details/${spotId}`).then(r => r.json()).then(data => {
+        document.getElementById('occ_spot_id').textContent = data.spot_id;
+        document.getElementById('occ_user_id').textContent = data.user_id;
+        document.getElementById('occ_vehicle_number').textContent = data.vehicle_number;
+        document.getElementById('occ_parking_time').textContent = data.parking_time;
+        document.getElementById('occ_parking_cost').textContent = data.parking_cost;
+        new bootstrap.Modal(document.getElementById('occupiedDetailsModal')).show();
+    });
+    }
+    };
+}
+</script>
+{% endblock %} 
