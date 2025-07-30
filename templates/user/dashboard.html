@@ -1,1 +1,313 @@
 
+{% extends 'base.html' %}
+{% block content %}
+<div class="bg-success text-white p-2 mb-3 rounded d-flex justify-content-between align-items-center">
+    <span><span class="fw-bold">Welcome to User</span></span>
+    <span>
+        <a href="{{ url_for('user.dashboard') }}" class="text-white fw-bold">Home</a> |
+        <a href="#" class="text-white fw-bold" id="summary-link">Summary</a> |
+        <a href="{{ url_for('auth.logout') }}" class="text-white fw-bold">Logout</a>
+    </span>
+    <span><a href="#" class="text-info fw-bold" id="edit-profile-link">Edit Profile</a></span>
+</div>
+<h5>Recent parking history</h5>
+<table class="table table-sm">
+    <thead>
+        <tr><th>ID</th><th>Location</th><th>Vehicle No</th><th>Timestamp</th><th>Parked Out Time</th><th>Cost</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+        {% for r in reservations|reverse %}
+        <tr>
+            <td>{{ r.id }}</td>
+            <td>
+                {% if r.spot and r.spot.lot %}
+                {{ r.spot.lot.prime_location_name }}
+                {% else %}
+                (Deleted)
+                {% endif %}
+            </td>
+            <td>{{ r.vehicle_number or '-' }}</td>
+            <td>{{ r.parking_timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+            {% if r.leaving_timestamp %}
+                {{ r.leaving_timestamp.strftime('%Y-%m-%d %H:%M') }}
+            {% else %}
+                -
+            {% endif %}
+            </td>
+            <td>
+                {% if r.leaving_timestamp and r.parking_cost is not none %}
+                {{ r.parking_cost }}
+                {% else %}
+                -
+                {% endif %}
+            </td>
+            <td>
+                {% if not r.leaving_timestamp %}
+                <button class="btn btn-warning btn-sm release-btn" data-reservation-id="{{ r.id }}">Release</button>
+                {% else %}
+                <span class="badge bg-success">Parked Out</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<form class="row g-2 align-items-center mb-3" method="get" action="{{ url_for('user.dashboard') }}">
+    <div class="col-auto">
+        <input type="text" class="form-control" name="search" placeholder="Search parking @location/pin code" value="{{ request.args.get('search', '') }}">
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Search</button>
+    </div>
+</form>
+{% if search_performed %}
+    <h5>Parking Lots{% if request.args.get('search') %} @{{ request.args.get('search') }}{% endif %}</h5>
+    <table class="table table-bordered">
+        <thead>
+            <tr><th>ID</th><th>Address</th><th>price</th></th><th>Availability</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+            {% for lot in lots %}
+            <tr>
+                <td>{{ lot.id }}</td>
+                <td>{{ lot.address }}</td>
+                <td>{{lot.price}}</td>
+                <td>{{ lot.spots|selectattr('status', 'equalto', 'A')|list|length }}</td>
+                <td><button class="btn btn-info btn-sm book-btn" data-lot-id="{{ lot.id }}">Book</button></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if not lots %}
+        <div class="alert alert-warning text-center">No parking lots found for your search.</div>
+    {% endif %}
+{% endif %}
+<div class="modal fade" id="bookModal" tabindex="-1" aria-labelledby="bookModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+    <div class="modal-content">
+        <form id="bookForm">
+        <div class="modal-header bg-warning-subtle">
+            <h5 class="modal-title" id="bookModalLabel">Book the parking spot</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <div class="mb-2"><strong>Spot ID:</strong> <span id="book_spot_id"></span></div>
+            <div class="mb-2"><strong>Lot ID:</strong> <span id="book_lot_id"></span></div>
+            <div class="mb-2"><strong>User ID:</strong> <span id="book_user_id"></span></div>
+            <div class="mb-3">
+            <label class="form-label">Vehicle Number</label>
+            <input type="text" class="form-control" name="vehicle_number" required>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Reserve</button>
+        </div>
+        </form>
+    </div>
+    </div>
+</div>
+<div class="modal fade" id="releaseModal" tabindex="-1" aria-labelledby="releaseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+    <div class="modal-content">
+        <form id="releaseForm">
+        <div class="modal-header bg-warning-subtle">
+            <h5 class="modal-title" id="releaseModalLabel">Release the parking spot</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <div class="mb-2"><strong>Spot ID:</strong> <span id="release_spot_id"></span></div>
+            <div class="mb-2"><strong>Vehicle Number:</strong> <span id="release_vehicle_number"></span></div>
+            <div class="mb-2"><strong>Parking time:</strong> <span id="release_parking_time"></span></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Release</button>
+        </div>
+        </form>
+    </div>
+</div>
+</div>
+<div class="modal fade" id="summaryModal" tabindex="-1" aria-labelledby="summaryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+        <div class="modal-header">
+        <h5 class="modal-title" id="summaryModalLabel">Summary on already used parking spots</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+        <div class="chart-container">
+            <canvas id="userSummaryChart"></canvas>
+        </div>
+        </div>
+    </div>
+</div>
+</div>
+<div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+    <div class="modal-content">
+        <form id="editProfileForm">
+        <div class="modal-header">
+            <h5 class="modal-title" id="editProfileModalLabel">Edit Profile</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <div class="mb-3">
+            <label class="form-label">Full Name</label>
+            <input type="text" class="form-control" name="full_name" id="editProfileFullName" required>
+            </div>
+            <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" name="email" id="editProfileEmail" required>
+            </div>
+            <div class="mb-3">
+            <label class="form-label">Address</label>
+            <input type="text" class="form-control" name="address" id="editProfileAddress" required>
+            </div>
+            <div class="mb-3">
+            <label class="form-label">Pin Code</label>
+            <input type="text" class="form-control" name="pin_code" id="editProfilePinCode" required>
+            </div>
+            <div class="mb-3">
+            <label class="form-label">New Password</label>
+            <input type="password" class="form-control" name="new_password">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Update</button>
+        </div>
+        </form>
+    </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var summaryLink = document.getElementById('summary-link');
+    if (summaryLink) {
+    summaryLink.onclick = function(e) {
+        e.preventDefault();
+        fetch('/user/summary_data').then(r => r.json()).then(res => {
+        var modal = new bootstrap.Modal(document.getElementById('summaryModal'));
+        setTimeout(function() {
+    
+        new Chart(document.getElementById('userSummaryChart'), {
+            type: 'bar',
+            data: {
+                labels: res.labels,
+                datasets: [{
+                label: res.label,
+                data: res.data,
+                backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                y: { beginAtZero: true }
+                },
+                plugins: { legend: { position: 'top' } }
+            }
+            });
+        }, 200);
+        modal.show();
+    });
+    };
+}
+
+document.querySelectorAll('.book-btn').forEach(btn => {
+    btn.onclick = function() {
+        const lotId = this.dataset.lotId;
+        fetch(`/user/first_available_spot/${lotId}`).then(r => r.json()).then(data => {
+        document.getElementById('book_spot_id').textContent = data.spot_id;
+        document.getElementById('book_lot_id').textContent = lotId;
+        document.getElementById('book_user_id').textContent = data.user_id;
+        new bootstrap.Modal(document.getElementById('bookModal')).show();
+    });
+    };
+});
+if (document.getElementById('bookForm')) {
+    document.getElementById('bookForm').onsubmit = function(e) {
+        e.preventDefault();
+        const lotId = document.getElementById('book_lot_id').textContent;
+        const spotId = document.getElementById('book_spot_id').textContent;
+        const vehicleNumber = this.vehicle_number.value;
+        fetch(`/user/reserve/${lotId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spot_id: spotId, vehicle_number: vehicleNumber })
+        })
+        .then(r => r.json())
+        .then(res => {
+        if (res.success) {
+            setTimeout(() => { location.reload(); }, 500);
+        } else {
+            alert(res.message || 'bookng error');
+        }
+        })
+        .catch(() => {
+        alert('booking failed try again');
+        });
+    };
+}
+document.querySelectorAll('.release-btn').forEach(btn => {
+    btn.onclick = function() {
+        const reservationId = this.dataset.reservationId;
+        fetch(`/user/release_info/${reservationId}`).then(r => r.json()).then(data => {
+        document.getElementById('release_spot_id').textContent = data.spot_id;
+        document.getElementById('release_vehicle_number').textContent = data.vehicle_number;
+        document.getElementById('release_parking_time').textContent = data.parking_time;
+        document.getElementById('releaseForm').setAttribute('data-reservation-id', reservationId);
+        new bootstrap.Modal(document.getElementById('releaseModal')).show();
+    });
+    };
+});
+if (document.getElementById('releaseForm')) {
+    document.getElementById('releaseForm').onsubmit = function(e) {
+        e.preventDefault();
+        const reservationId = this.getAttribute('data-reservation-id');
+        fetch(`/user/release/${reservationId}`, { method: 'POST' }).then(r => r.json()).then(res => {
+        if (res.success) {
+            location.reload();
+        } else {
+            alert(res.message || 'releasing spot error');
+        }
+    });
+    };
+}
+    document.getElementById('edit-profile-link').onclick = function() {
+    fetch('/user/profile_info').then(r => r.json()).then(data => {
+        document.getElementById('editProfileFullName').value = data.full_name || '';
+        document.getElementById('editProfileEmail').value = data.email || '';
+        document.getElementById('editProfileAddress').value = data.address || '';
+        document.getElementById('editProfilePinCode').value = data.pin_code || '';
+        new bootstrap.Modal(document.getElementById('editProfileModal')).show();
+    });
+};
+document.getElementById('editProfileForm').onsubmit = function(e) {
+    e.preventDefault();
+    const formData = {
+        full_name: document.getElementById('editProfileFullName').value,
+        email: document.getElementById('editProfileEmail').value,
+        address: document.getElementById('editProfileAddress').value,
+        pin_code: document.getElementById('editProfilePinCode').value,
+        new_password: document.querySelector('#editProfileForm [name="new_password"]').value
+    };
+    fetch('/user/edit_profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+    }).then(r => r.json()).then(res => {
+        if (res.success) {
+        location.reload();
+        }
+    });
+};
+});
+</script>
+{% endblock %} 
