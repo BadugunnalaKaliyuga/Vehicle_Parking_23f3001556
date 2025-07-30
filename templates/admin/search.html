@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card p-4 mb-4">
+    <form class="row g-2 align-items-center" id="admin-search-form">
+        <div class="col-auto">
+            <label for="searchBy" class="form-label fw-bold" style="color: orange;">Search by</label>
+            <select class="form-select" id="searchBy" name="search_by">
+                <option value="user_id">User ID</option>
+                <option value="location">Parking Spot by Location</option>
+                <option value="lot_id">Parking Lot ID</option>
+            </select>
+        </div>
+        <div class="col-auto">
+            <input type="text" class="form-control" id="searchString" name="search_string" placeholder="Enter search string">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary">Search</button>
+        </div>
+    </form>
+</div>
+<div id="search-results">
+</div>
+
+<div class="modal fade" id="summaryModal" tabindex="-1" aria-labelledby="summaryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+        <div class="modal-header">
+        <h5 class="modal-title" id="summaryModalLabel">Summary Statistics</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+    <div class="modal-body">
+        <canvas id="summaryChartModal" width="600" height="300"></canvas>
+    </div>
+    </div>
+</div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var summaryLink = document.getElementById('summary-link');
+    if (summaryLink) {
+    summaryLink.onclick = function(e) {
+        e.preventDefault();
+        fetch('/admin/summarize').then(r => r.json()).then(res => {
+        var modal = new bootstrap.Modal(document.getElementById('summaryModal'));
+        document.getElementById('summaryModal').style.display = 'block';
+        setTimeout(function() {
+            renderBarChart('summaryChartModal', res.labels, res.data, res.label);
+        }, 200);
+        modal.show();
+    });
+    };
+}
+});
+</script>
+{% endblock %} 
