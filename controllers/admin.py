@@ -3,7 +3,6 @@ from models.models import User, ParkingLot, ParkingSpot, Reservation
 from app import db
 
 admin = Blueprint('admin', __name__, url_prefix='/admin')
-
 @admin.before_request
 def require_admin():
     from flask import session, redirect, url_for
