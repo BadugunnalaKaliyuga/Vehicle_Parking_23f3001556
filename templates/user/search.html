@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-center">
+    <div class="card p-4 mb-4 w-75">
+    <form class="row g-2 align-items-center justify-content-center" method="get">
+    <div class="col-8">
+        <input type="text" class="form-control form-control-lg" name="search" placeholder="Search parking lots by location or pin code">
+        </div>
+        <div class="col-auto">
+        <button type="submit" class="btn btn-primary btn-lg">Search</button>
+        </div>
+    </form>
+</div>
+</div>
+<div id="search-results">
+    {% if search_performed %}
+        {% if lots %}
+            <div class="d-flex flex-wrap gap-4 justify-content-center">
+                {% for lot in lots %}
+                <div class="card p-3" style="min-width: 250px;">
+                    <div class="fw-bold">{{ lot.prime_location_name }}</div>
+                    <div class="text-success">(Occupied : {{ lot.spots|selectattr('status', 'equalto', 'O')|list|length }}/{{ lot.maximum_number_of_spots }})</div>
+                    <div class="d-flex flex-wrap gap-1 mt-2">
+                        {% for spot in lot.spots %}
+                        <span class="badge {% if spot.status == 'A' %}bg-success{% else %}bg-danger{% endif %}">{{ spot.status }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-warning text-center">No parking lots found for your search.</div>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %} 
